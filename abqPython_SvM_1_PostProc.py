@@ -48,20 +48,6 @@ def nodalAveraged(odbInstance,Frame,StressType,timestep):
     return NodeLabels_unique, Values_Averaged
 
 
-def VMSign(S1,S3,VM):
-    """
-    This simple function accepts the maximum principal stress (S1),
-    minimum principal stress (S3), and von Mises equivalent stress (VM)
-    for a node.  It then returns a signed von Mises stress.  The code is
-    vectorized for increased computational speed.
-    """
-    if abs(S1)>abs(S3):
-        return np.sign(S1)*VM
-    else:
-        return np.sign(S3)*VM
-
-vectfunc = np.vectorize(VMSign,otypes=[np.float],cache=False)
-
 
 #==============================================================================
 # RUN THE PROGRAM
@@ -84,12 +70,11 @@ odbInstance = odb.rootAssembly.instances[allInstances[-1]]
 # Retrieve nodal averaged stresses at steady-state solution
 timestep = 0
 Frame = odb.steps['Step-3-Pulse'].frames
-nodeNum, maxPrin = nodalAveraged(odbInstance,Frame,MAX_PRINCIPAL,timestep)
-nodeNum, minPrin = nodalAveraged(odbInstance,Frame,MIN_PRINCIPAL,timestep)
+nodeNum, pressure = nodalAveraged(odbInstance,Frame,PRESS,timestep)
 nodeNum, vonMises = nodalAveraged(odbInstance,Frame,MISES,timestep)
 
 # Create a signed von Mises stress
-vonMisesSigned = np.array(list(vectfunc(maxPrin,minPrin,vonMises)))
+vonMisesSigned = np.sign(-1.*pressure)*vonMises
 
 # Save static stress and also initialize dynamic stress vectors
 stressStatic = vonMisesSigned.copy()
@@ -109,22 +94,20 @@ for item in range(len(nodeList)):
 # Find max and min stress values at each node during pulse response
 Frame = odb.steps['Step-4-Response'].frames
 for timestep in range(len(Frame)):
-    nodeNum, maxPrin = nodalAveraged(odbInstance,Frame,MAX_PRINCIPAL,timestep)
-    nodeNum, minPrin = nodalAveraged(odbInstance,Frame,MIN_PRINCIPAL,timestep)
+    nodeNum, pressure = nodalAveraged(odbInstance,Frame,PRESS,timestep)
     nodeNum, vonMises = nodalAveraged(odbInstance,Frame,MISES,timestep)
     
-    vonMisesSigned = np.array(vectfunc(maxPrin,minPrin,vonMises))
+    vonMisesSigned = np.sign(-1.*pressure)*vonMises
     
     stressDynamicMax = np.maximum(stressDynamicMax, vonMisesSigned)
     stressDynamicMin = np.minimum(stressDynamicMin, vonMisesSigned)
 
 Frame = odb.steps['Step-6-Response'].frames
 for timestep in range(len(Frame)):
-    nodeNum, maxPrin = nodalAveraged(odbInstance,Frame,MAX_PRINCIPAL,timestep)
-    nodeNum, minPrin = nodalAveraged(odbInstance,Frame,MIN_PRINCIPAL,timestep)
+    nodeNum, pressure = nodalAveraged(odbInstance,Frame,PRESS,timestep)
     nodeNum, vonMises = nodalAveraged(odbInstance,Frame,MISES,timestep)
     
-    vonMisesSigned = np.array(vectfunc(maxPrin,minPrin,vonMises))
+    vonMisesSigned = np.sign(-1.*pressure)*vonMises
     
     stressDynamicMax = np.maximum(stressDynamicMax, vonMisesSigned)
     stressDynamicMin = np.minimum(stressDynamicMin, vonMisesSigned)
